@@ -1,0 +1,259 @@
+# =============================================================================
+# FirmaPDFs - Configuration File
+# =============================================================================
+# Document Automation System for Windows
+# Version: 1.0.0
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Directory Paths (relative to project root or absolute)
+# -----------------------------------------------------------------------------
+paths:
+  inbox: "samples/inbox"              # Input folder for .docx files
+  templates: "samples/templates"       # Template files for reference
+  output_docx: "processed/docx"       # Processed Word documents
+  output_pdf: "processed/pdf"         # Exported PDFs (unsigned)
+  output_signed: "processed/signed"   # Signed PDFs (final output)
+  logs: "logs"                        # Log files directory
+  archive: "processed/archive"        # Archived processed files (optional)
+
+# -----------------------------------------------------------------------------
+# Word Processing Settings
+# -----------------------------------------------------------------------------
+word:
+  # Processing engine: "com" (pywin32 COM) or "docx" (python-docx)
+  # COM is more reliable for complex documents with content controls
+  engine: "com"
+
+  # Date format for date fields (Python strftime format)
+  date_format: "%d/%m/%Y"
+
+  # Locale for date formatting (es_ES, en_US, etc.)
+  locale: "es_ES"
+
+  # Field names to look for when inserting date
+  date_field_names:
+    - "Fecha"
+    - "DATE"
+    - "FechaDocumento"
+    - "fecha_actual"
+
+  # Keep original file after processing
+  keep_original: true
+
+  # Timeout for Word COM operations (seconds)
+  com_timeout: 60
+
+# -----------------------------------------------------------------------------
+# PDF Export Settings
+# -----------------------------------------------------------------------------
+pdf:
+  # Export quality: "standard", "high", "print"
+  quality: "high"
+
+  # PDF/A compliance (for archival): true/false
+  pdfa_compliance: false
+
+  # Optimize for web viewing
+  optimize_for_web: false
+
+  # Include document properties
+  include_properties: true
+
+# -----------------------------------------------------------------------------
+# Digital Signature Settings
+# -----------------------------------------------------------------------------
+signature:
+  # Certificate file path (.pfx or .p12)
+  # Use absolute path or relative to project root
+  certificate_path: "config/certificate.pfx"
+
+  # Password storage method: "config", "env", "credential_manager", "dpapi"
+  # - config: stored in this file (NOT recommended for production)
+  # - env: from environment variable FIRMAPDFS_CERT_PASSWORD
+  # - credential_manager: Windows Credential Manager (recommended)
+  # - dpapi: Windows Data Protection API
+  password_storage: "credential_manager"
+
+  # Password (only used if password_storage is "config")
+  # WARNING: Storing passwords in config is insecure
+  # password: "your_password_here"
+
+  # Credential Manager target name (for password_storage: credential_manager)
+  credential_name: "FirmaPDFs_Certificate"
+
+  # Signature appearance
+  appearance:
+    # Show visible signature stamp
+    visible: true
+
+    # Position: "bottom_right", "bottom_left", "top_right", "top_left", "custom"
+    position: "bottom_right"
+
+    # Custom position (only if position is "custom")
+    # Coordinates in points from bottom-left corner
+    custom_x: 400
+    custom_y: 50
+
+    # Signature box dimensions (points)
+    width: 200
+    height: 50
+
+    # Page to sign: "last", "first", "all", or page number (1-indexed)
+    page: "last"
+
+    # Text template for signature stamp
+    # Available variables: {signer_name}, {date}, {time}, {reason}, {location}
+    text_template: |
+      Firmado digitalmente por:
+      {signer_name}
+      Fecha: {date}
+
+    # Font settings
+    font_name: "Helvetica"
+    font_size: 8
+    font_color: "#000000"
+
+    # Background color (empty for transparent)
+    background_color: ""
+
+    # Border
+    border: true
+    border_color: "#000000"
+    border_width: 1
+
+  # Signature metadata
+  reason: "Documento revisado y aprobado"
+  location: "España"
+  contact_info: ""
+
+  # Timestamp server (optional, for trusted timestamps)
+  # timestamp_url: "http://timestamp.digicert.com"
+  timestamp_url: ""
+
+  # Signature algorithm
+  algorithm: "sha256"
+
+# -----------------------------------------------------------------------------
+# Processing Behavior
+# -----------------------------------------------------------------------------
+processing:
+  # Dry run mode: simulate without making changes
+  dry_run: false
+
+  # Skip already processed files
+  skip_processed: true
+
+  # How to detect already processed files: "hash", "filename", "signature"
+  processed_detection: "hash"
+
+  # Hash algorithm for duplicate detection
+  hash_algorithm: "sha256"
+
+  # Maximum retries on failure
+  max_retries: 3
+
+  # Delay between retries (seconds)
+  retry_delay: 5
+
+  # Continue processing other files on error
+  continue_on_error: true
+
+  # File locking timeout (seconds)
+  lock_timeout: 30
+
+  # Delete source file after successful processing
+  delete_source: false
+
+  # Move source to archive after processing
+  archive_source: false
+
+# -----------------------------------------------------------------------------
+# Watcher Settings (for daemon mode)
+# -----------------------------------------------------------------------------
+watcher:
+  # Enable file watcher
+  enabled: false
+
+  # Polling interval (seconds) - for systems where native events don't work
+  poll_interval: 5
+
+  # Debounce time (seconds) - wait for file to stabilize
+  debounce_time: 2
+
+  # Watch subdirectories
+  recursive: false
+
+  # File patterns to watch
+  patterns:
+    - "*.docx"
+    - "*.DOCX"
+
+  # Ignore patterns
+  ignore_patterns:
+    - "~$*"           # Word temp files
+    - "*.tmp"
+    - ".~*"
+
+# -----------------------------------------------------------------------------
+# Logging Settings
+# -----------------------------------------------------------------------------
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+
+  # Log to console
+  console: true
+
+  # Log to file
+  file: true
+
+  # Log file name pattern (supports date formatting)
+  file_pattern: "firmapdfs_{date}.log"
+
+  # Maximum log file size (MB)
+  max_size_mb: 10
+
+  # Number of backup files to keep
+  backup_count: 5
+
+  # Log format
+  format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+
+  # Date format in logs
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+# -----------------------------------------------------------------------------
+# Reporting Settings
+# -----------------------------------------------------------------------------
+reporting:
+  # Generate CSV report
+  csv_enabled: true
+
+  # CSV file path
+  csv_path: "logs/report.csv"
+
+  # CSV columns
+  csv_columns:
+    - "timestamp"
+    - "filename"
+    - "status"
+    - "message"
+    - "docx_output"
+    - "pdf_output"
+    - "signed_output"
+    - "duration_ms"
+
+  # Generate HTML report (summary)
+  html_enabled: false
+  html_path: "logs/report.html"
+
+# -----------------------------------------------------------------------------
+# Notification Settings (future feature)
+# -----------------------------------------------------------------------------
+notifications:
+  # Enable email notifications on errors
+  email_enabled: false
+  # email_smtp_server: "smtp.example.com"
+  # email_from: "firmapdfs@example.com"
+  # email_to: "admin@example.com"

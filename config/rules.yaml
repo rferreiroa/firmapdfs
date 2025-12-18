@@ -1,0 +1,340 @@
+# =============================================================================
+# FirmaPDFs - Document Processing Rules
+# =============================================================================
+# This file defines the rules for processing document checkboxes and fields
+# based on document content or metadata.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Rule Syntax
+# -----------------------------------------------------------------------------
+# Each rule has:
+#   - name: Unique identifier for the rule
+#   - description: Human-readable description
+#   - enabled: true/false to enable/disable the rule
+#   - conditions: List of conditions that must ALL be true (AND logic)
+#   - actions: List of actions to perform when conditions are met
+#
+# Condition types:
+#   - contains: Document text contains string (case-insensitive)
+#   - not_contains: Document text does NOT contain string
+#   - regex: Document text matches regex pattern
+#   - field_equals: A specific field has a value
+#   - filename_contains: Filename contains string
+#   - filename_regex: Filename matches regex
+#
+# Action types:
+#   - set_checkbox: Set a checkbox by name/tag to checked/unchecked
+#   - set_field: Set a field value
+#   - set_date: Set a date field to current date
+#   - append_text: Append text to a field
+# -----------------------------------------------------------------------------
+
+# Version of the rules schema
+version: "1.0"
+
+# -----------------------------------------------------------------------------
+# Global Settings for Rules
+# -----------------------------------------------------------------------------
+settings:
+  # Case-insensitive matching for contains conditions
+  case_insensitive: true
+
+  # Log rule evaluation for debugging
+  debug_rules: false
+
+  # Stop processing rules after first match
+  stop_on_first_match: false
+
+# -----------------------------------------------------------------------------
+# Checkbox Mappings
+# -----------------------------------------------------------------------------
+# Maps human-readable names to actual control identifiers in Word documents
+# This helps when checkbox names/tags vary slightly between templates
+checkbox_mappings:
+  # Format: "logical_name": ["possible_tag1", "possible_tag2", "partial_text"]
+  aprobado:
+    - "chkAprobado"
+    - "CheckBoxAprobado"
+    - "Aprobado"
+    - "APROBADO"
+
+  rechazado:
+    - "chkRechazado"
+    - "CheckBoxRechazado"
+    - "Rechazado"
+    - "RECHAZADO"
+
+  revision_requerida:
+    - "chkRevision"
+    - "CheckBoxRevision"
+    - "Revisión"
+    - "REVISION"
+    - "Requiere revisión"
+
+  conforme:
+    - "chkConforme"
+    - "Conforme"
+    - "CONFORME"
+
+  no_conforme:
+    - "chkNoConforme"
+    - "No conforme"
+    - "NO CONFORME"
+
+  urgente:
+    - "chkUrgente"
+    - "Urgente"
+    - "URGENTE"
+
+  documentacion_completa:
+    - "chkDocCompleta"
+    - "Documentación completa"
+    - "Doc. Completa"
+
+  firma_requerida:
+    - "chkFirma"
+    - "Firma requerida"
+    - "Requiere firma"
+
+# -----------------------------------------------------------------------------
+# Field Mappings
+# -----------------------------------------------------------------------------
+# Maps human-readable names to actual field identifiers
+field_mappings:
+  fecha:
+    - "Fecha"
+    - "DATE"
+    - "FechaDocumento"
+    - "fecha_actual"
+    - "FechaFirma"
+
+  responsable:
+    - "Responsable"
+    - "NombreResponsable"
+    - "Firmante"
+
+  departamento:
+    - "Departamento"
+    - "Dept"
+    - "Area"
+
+  referencia:
+    - "Referencia"
+    - "Ref"
+    - "NumeroReferencia"
+
+  observaciones:
+    - "Observaciones"
+    - "Notas"
+    - "Comentarios"
+
+# -----------------------------------------------------------------------------
+# Processing Rules
+# -----------------------------------------------------------------------------
+rules:
+  # -------------------------------------------------------------------------
+  # Rule: Default Date
+  # Always set the date field to today's date
+  # -------------------------------------------------------------------------
+  - name: "default_date"
+    description: "Set date field to current date"
+    enabled: true
+    priority: 100  # Higher priority = executed first
+    conditions: []  # No conditions = always applies
+    actions:
+      - type: "set_date"
+        field: "fecha"
+        format: "%d/%m/%Y"
+
+  # -------------------------------------------------------------------------
+  # Rule: Approval Documents
+  # If document contains "APROBACIÓN" or "APROBADO", check the approval box
+  # -------------------------------------------------------------------------
+  - name: "approval_documents"
+    description: "Mark approval checkbox for approval documents"
+    enabled: true
+    priority: 90
+    conditions:
+      - type: "contains"
+        value: "APROBACIÓN"
+      # OR condition - any of these
+      - type: "contains_any"
+        values:
+          - "documento aprobado"
+          - "se aprueba"
+          - "queda aprobado"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "aprobado"
+        value: true
+      - type: "set_checkbox"
+        checkbox: "rechazado"
+        value: false
+
+  # -------------------------------------------------------------------------
+  # Rule: Rejection Documents
+  # If document contains rejection keywords
+  # -------------------------------------------------------------------------
+  - name: "rejection_documents"
+    description: "Mark rejection checkbox for rejected documents"
+    enabled: true
+    priority: 90
+    conditions:
+      - type: "contains_any"
+        values:
+          - "RECHAZADO"
+          - "NO APROBADO"
+          - "se rechaza"
+          - "queda rechazado"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "rechazado"
+        value: true
+      - type: "set_checkbox"
+        checkbox: "aprobado"
+        value: false
+
+  # -------------------------------------------------------------------------
+  # Rule: Conformity Documents
+  # -------------------------------------------------------------------------
+  - name: "conformity_positive"
+    description: "Mark conforme for conformity documents"
+    enabled: true
+    priority: 85
+    conditions:
+      - type: "contains_any"
+        values:
+          - "CONFORME"
+          - "cumple los requisitos"
+          - "es conforme"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "conforme"
+        value: true
+      - type: "set_checkbox"
+        checkbox: "no_conforme"
+        value: false
+
+  # -------------------------------------------------------------------------
+  # Rule: Non-Conformity Documents
+  # -------------------------------------------------------------------------
+  - name: "conformity_negative"
+    description: "Mark no conforme for non-conformity documents"
+    enabled: true
+    priority: 85
+    conditions:
+      - type: "contains_any"
+        values:
+          - "NO CONFORME"
+          - "no cumple"
+          - "incumplimiento"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "no_conforme"
+        value: true
+      - type: "set_checkbox"
+        checkbox: "conforme"
+        value: false
+
+  # -------------------------------------------------------------------------
+  # Rule: Urgent Documents (by filename)
+  # -------------------------------------------------------------------------
+  - name: "urgent_by_filename"
+    description: "Mark urgent if filename contains URGENTE"
+    enabled: true
+    priority: 95
+    conditions:
+      - type: "filename_contains"
+        value: "URGENTE"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "urgente"
+        value: true
+
+  # -------------------------------------------------------------------------
+  # Rule: Revision Required
+  # -------------------------------------------------------------------------
+  - name: "revision_required"
+    description: "Mark revision required for documents needing review"
+    enabled: true
+    priority: 80
+    conditions:
+      - type: "contains_any"
+        values:
+          - "pendiente de revisión"
+          - "requiere revisión"
+          - "revisar antes"
+          - "PENDIENTE"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "revision_requerida"
+        value: true
+
+  # -------------------------------------------------------------------------
+  # Rule: Complete Documentation
+  # Mark documentation as complete when all requirements are met
+  # -------------------------------------------------------------------------
+  - name: "documentation_complete"
+    description: "Mark documentation complete"
+    enabled: true
+    priority: 70
+    conditions:
+      - type: "contains_all"
+        values:
+          - "documentación completa"
+          - "todos los anexos"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "documentacion_completa"
+        value: true
+
+  # -------------------------------------------------------------------------
+  # Rule: Template-specific - Inspection Report
+  # -------------------------------------------------------------------------
+  - name: "inspection_report"
+    description: "Process inspection report templates"
+    enabled: true
+    priority: 75
+    conditions:
+      - type: "filename_regex"
+        pattern: "^(INSP|Inspeccion|Inspection).*\\.docx$"
+    actions:
+      - type: "set_checkbox"
+        checkbox: "firma_requerida"
+        value: true
+
+  # -------------------------------------------------------------------------
+  # Rule: Always require signature
+  # -------------------------------------------------------------------------
+  - name: "always_sign"
+    description: "All processed documents require signature"
+    enabled: true
+    priority: 50
+    conditions: []
+    actions:
+      - type: "set_checkbox"
+        checkbox: "firma_requerida"
+        value: true
+
+# -----------------------------------------------------------------------------
+# Custom Field Values (optional)
+# -----------------------------------------------------------------------------
+# Set default values for fields that are not covered by rules
+default_field_values:
+  # departamento: "Departamento de Calidad"
+  # responsable: "Responsable Técnico"
+
+# -----------------------------------------------------------------------------
+# Post-Processing Actions
+# -----------------------------------------------------------------------------
+# Actions to perform after all rules have been evaluated
+post_processing:
+  # Validate that required checkboxes are set
+  validate_required:
+    - "fecha"
+
+  # Log warning if these are not set
+  warn_if_missing:
+    - "aprobado"
+    - "rechazado"

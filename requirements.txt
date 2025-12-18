@@ -1,0 +1,31 @@
+# FirmaPDFs - Document Automation System
+# Requirements for Windows 11
+
+# CLI and Configuration
+click>=8.1.7
+pyyaml>=6.0.1
+python-dotenv>=1.0.0
+
+# Word Document Processing
+python-docx>=1.1.0
+# pywin32 - Windows COM automation (install separately on Windows)
+# pywin32>=306
+
+# PDF Processing and Signing
+pypdf>=4.0.0
+reportlab>=4.1.0
+cryptography>=41.0.0
+endesive>=2.17.0
+
+# Utilities
+watchdog>=4.0.0
+colorama>=0.4.6
+tabulate>=0.9.0
+
+# Development/Testing
+pytest>=8.0.0
+pytest-cov>=4.1.0
+
+# Windows-specific (uncomment on Windows)
+# pywin32>=306
+# keyring>=25.0.0
