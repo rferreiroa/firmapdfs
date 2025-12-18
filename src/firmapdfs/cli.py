@@ -256,18 +256,42 @@ def init(force: bool):
     default=False,
     help="Skip PDF export (only process Word)"
 )
+@click.option(
+    "--checkbox",
+    "-cb",
+    multiple=True,
+    help="Set checkbox: name=true/false (can use multiple times)"
+)
 @pass_context
-def process(ctx: CLIContext, file: Optional[str], no_sign: bool, no_pdf: bool):
+def process(ctx: CLIContext, file: Optional[str], no_sign: bool, no_pdf: bool, checkbox: tuple):
     """
     Process documents from inbox folder.
 
     Processes .docx files: fills fields, exports to PDF, and signs.
+
+    \b
+    Examples:
+      firmapdfs process                         # Process all in inbox
+      firmapdfs process -f doc.docx             # Process single file
+      firmapdfs process --no-pdf                # Only process Word
+      firmapdfs process -cb aprobado=true       # Set checkbox manually
     """
+    from .word_processor import DocumentProcessor
+    from .report import ReportManager
+    from .utils import Timer
+
     logger = get_logger("cli.process")
 
     if ctx.config is None:
         click.echo("Error: Configuration not loaded", err=True)
         sys.exit(1)
+
+    # Parse checkbox overrides
+    checkbox_overrides = {}
+    for cb in checkbox:
+        if "=" in cb:
+            name, value = cb.split("=", 1)
+            checkbox_overrides[name.strip()] = value.strip().lower() in ("true", "1", "yes", "si")
 
     if ctx.dry_run:
         click.echo("[DRY RUN MODE] No changes will be made")
@@ -291,26 +315,78 @@ def process(ctx: CLIContext, file: Optional[str], no_sign: bool, no_pdf: bool):
 
     click.echo("")
 
+    # Initialize processor and reporter
+    processor = DocumentProcessor(ctx.config, ctx.rules)
+    reporter = ReportManager(
+        ctx.config.reporting.csv_path,
+        ctx.config.reporting.csv_columns
+    )
+
+    # Statistics
+    success_count = 0
+    error_count = 0
+
     # Process each file
-    # TODO: Implement actual processing in Sprint 1+
     for filepath in files:
         click.echo(f"Processing: {filepath.name}")
 
-        if ctx.dry_run:
-            click.echo(f"  [DRY RUN] Would process: {filepath.name}")
-            click.echo(f"  [DRY RUN] Would save docx to: {ctx.config.paths.output_docx}")
-            if not no_pdf:
-                click.echo(f"  [DRY RUN] Would export PDF to: {ctx.config.paths.output_pdf}")
-            if not no_sign and not no_pdf:
-                click.echo(f"  [DRY RUN] Would sign PDF to: {ctx.config.paths.output_signed}")
-        else:
-            # TODO: Implement processing
-            click.echo(f"  [TODO] Processing not yet implemented")
+        with Timer() as timer:
+            if ctx.dry_run:
+                click.echo(f"  [DRY RUN] Would process: {filepath.name}")
+                click.echo(f"  [DRY RUN] Would save docx to: {ctx.config.paths.output_docx}")
+                if not no_pdf:
+                    click.echo(f"  [DRY RUN] Would export PDF to: {ctx.config.paths.output_pdf}")
+                if not no_sign and not no_pdf:
+                    click.echo(f"  [DRY RUN] Would sign PDF to: {ctx.config.paths.output_signed}")
+                success_count += 1
+            else:
+                # Process Word document
+                result = processor.process_document(
+                    input_path=filepath,
+                    dry_run=False,
+                    set_date=True,
+                    checkbox_overrides=checkbox_overrides if checkbox_overrides else None,
+                )
 
-        logger.info(f"Processed: {filepath.name}")
+                if result.success:
+                    success_count += 1
+                    click.echo(f"  [OK] Saved to: {result.output_path}")
+
+                    if result.fields_modified:
+                        click.echo(f"  [OK] Date fields set: {', '.join(result.fields_modified)}")
+                    if result.checkboxes_modified:
+                        click.echo(f"  [OK] Checkboxes set: {', '.join(result.checkboxes_modified)}")
+
+                    # Add to report
+                    reporter.add_success(
+                        filename=filepath.name,
+                        docx_output=str(result.output_path) if result.output_path else "",
+                        duration_ms=timer.elapsed_ms,
+                        rules_applied=result.checkboxes_modified,
+                    )
+
+                    # TODO: Export to PDF (Sprint 2)
+                    if not no_pdf:
+                        click.echo(f"  [TODO] PDF export not yet implemented")
+
+                    # TODO: Sign PDF (Sprint 3)
+                    if not no_sign and not no_pdf:
+                        click.echo(f"  [TODO] PDF signing not yet implemented")
+
+                else:
+                    error_count += 1
+                    click.echo(f"  [ERROR] {result.error_message}", err=True)
+
+                    reporter.add_error(
+                        filename=filepath.name,
+                        error_message=result.error_message,
+                        duration_ms=timer.elapsed_ms,
+                    )
+
+        logger.info(f"Processed: {filepath.name} ({timer.elapsed_ms}ms)")
 
     click.echo("")
-    click.echo(f"Processing complete. Processed {len(files)} file(s).")
+    click.echo(f"Processing complete: {success_count} OK, {error_count} errors")
 
 
 # =============================================================================
